@@ -5,7 +5,7 @@ use Test::More tests => 19;
 use lib qw(.);
 
 print STDERR "\n";
-require_ok( 'Data::Validate' );
+require_ok( 'Data::Validate::Struct' );
 
 my $ref = {
 	   'v4' => 'line',
@@ -79,7 +79,7 @@ my $cfg =  {
 	    'v16' => '\' this is a quoted string \''
 	   };
 
-my $v = new Data::Validate($ref);
+my $v = new Data::Validate::Struct($ref);
 ok ($v->validate($cfg), "validate a reference against a config " . $v->errstr());
 
 
@@ -155,7 +155,7 @@ my @failure =
 foreach my $test (@failure) {
   my $ref    = { v => $test->{type} };
   my $cfg    = { v => $test->{cfg}  };
-  my $v      = new Data::Validate($ref);
+  my $v      = new Data::Validate::Struct($ref);
   if ($v->validate($cfg)) {
     fail("could not catch invalid \"$test->{type}\"");
   }
@@ -171,7 +171,7 @@ my $ref3 = { v1 => 'address',
 	     v2 => 'list' };
 my $cfg3 = { v1 => 'Marblestreet 15',
 	     v2 => 'a1, b2, b3' };
-my $v3   = new Data::Validate($ref3);
+my $v3   = new Data::Validate::Struct($ref3);
 $v3->type(
  (
   address => qr(^\w+\s\s*\d+$),

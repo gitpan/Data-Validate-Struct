@@ -1,5 +1,5 @@
 NAME
-    Data::Validate::Struct - Validate Config Hashes
+    Data::Validate::Struct - Validate recursive Hash Structures
 
 SYNOPSIS
      use Data::Validate::Struct;
@@ -14,15 +14,22 @@ SYNOPSIS
 DESCRIPTION
     This module validates a config hash reference against a given hash
     structure in contrast to Data::Validate in which you have to check each
-    value separately using methods.
+    value separately using certain methods.
 
     This hash could be the result of a config parser or just any hash
     structure. Eg. the hash returned by XML::Simple could be validated using
     this module. You may also use it to validate CGI input, just fetch the
     input data from CGI, map it to a hash and validate it.
 
+    Data::Validate::Struct uses some of the methods exported by
+    Data::Validate, so you need to install it too.
+
 PREDEFINED BUILTIN DATA TYPES
     int Match a simple integer number.
+
+    hex Match a hex value.
+
+    oct Match an octagonal value.
 
     number
         Match a decimal number, it may contain , or . and may be signed.
@@ -310,10 +317,15 @@ SEE ALSO
     I recommend you to read the following documentations, which are supplied
     with perl:
 
-     perlreftut                     Perl references short introduction
-     perlref                        Perl references, the rest of the story
-     perldsc                        Perl data structures intro
-     perllol                        Perl data structures: arrays of arrays
+    perlreftut Perl references short introduction.
+
+    perlref Perl references, the rest of the story.
+
+    perldsc Perl data structures intro.
+
+    perllol Perl data structures: arrays of arrays.
+
+    Data::Validate common data validation methods.
 
 LICENSE AND COPYRIGHT
     Copyright (c) 2007 Thomas Linden
@@ -340,17 +352,17 @@ DIAGNOSTICS
      perl -Mre=debug yourscript.pl
 
 DEPENDENCIES
-    Data::Validate::Struct depends on the module Regexp::Common, File::Spec
-    and File::stat.
+    Data::Validate::Struct depends on the module Data::Validate,
+    Regexp::Common, File::Spec and File::stat.
 
 TODO
     *   Add support for type mixes, such as:
 
          { name => 'int|number' }
 
-    *   Add support for ranges, in fact Regexp::Common already supports
-        this, but Data::Validate::Struct currently doesn't support
-        parameters for types.
+    *   Add support for ranges, in fact Regexp::Common or Data::Validate
+        already supports this, but Data::Validate::Struct currently doesn't
+        support parameters for types.
 
     *   Perhaps add code validation too, for example we could have a type
         'perl' which tries to evaluate the given value. On the other side
@@ -371,5 +383,5 @@ AUTHOR
     Thanks to David Cantrell for his helpful hints.
 
 VERSION
-    0.05
+    0.06
 

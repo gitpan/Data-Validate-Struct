@@ -11,18 +11,20 @@ use warnings;
 use English '-no_match_vars';
 use Carp;
 use Exporter;
-use Data::Dumper;
+#use Data::Dumper;
 
 use Regexp::Common::URI::RFC2396 qw /$host $port/;
-use Regexp::Common qw /URI number net delimited/;
+use Regexp::Common qw /URI net delimited/;
 
 use File::Spec::Functions qw/file_name_is_absolute/;
 use File::stat;
 
+use Data::Validate qw(:math is_printable);
+
 use constant FALSE => 0;
 use constant TRUE  => 1;
 
-$Data::Validate::Struct::VERSION = 0.05;
+$Data::Validate::Struct::VERSION = 0.06;
 
 use vars  qw(@ISA);
 
@@ -39,15 +41,17 @@ sub new {
   # checks, which we already support.
   $self->{types} = {
 		    # primitives
-		    int            => qr(^\d+$),
-		    number         => qr(^$RE{num}{decimal}$),
+		    int            => sub { return defined(is_integer($_[0])); },
+		    hex            => sub { return defined(is_hex($_[0])); },
+		    oct            => sub { return defined(is_oct($_[0])); },
+
+		    # FIXME: add is_between argumented types, need more than one argument
+
+		    number         => sub { return defined(is_numeric($_[0])); }, # abandoned: qr(^$RE{num}{decimal}$),
 		    word           => qr(^[\w_\-]+$),
 		    line           => qr/^[^\n]+$/s,
 
-		    # note by David Cantrel: will match stuff containing control characters
-		    # however, I'm unsure how to make sure a value is "text"...
-		    # perhaps it could be better named 'any'? FIXME.
-		    text           => qr/.+/s,
+		    text           => sub { return defined(is_printable($_[0])); }, # abandoned: qr/.+/s,
 
 		    # this is a bit loosy but should match most regular expressions
 		    # using the qr() operator, but it doesn't check if the expression
@@ -57,6 +61,7 @@ sub new {
 
 		    # via imported regexes
 		    uri            => qr(^$RE{URI}$),
+		    # FIXME: use Data::Validate::IP here
 		    cidrv4         => qr/^$RE{net}{IPv4} \/ ( [0-9] | [12][0-9] | 3[0-2] )$/x,
 		    ipv4           => qr/^$RE{net}{IPv4}$/,
                     quoted         => qr/^$RE{delimited}{ -delim => qr(\') }$/,
@@ -249,7 +254,7 @@ __END__
 
 =head1 NAME
 
-Data::Validate::Struct - Validate Config Hashes
+Data::Validate::Struct - Validate recursive Hash Structures
 
 =head1 SYNOPSIS
 
@@ -266,13 +271,16 @@ Data::Validate::Struct - Validate Config Hashes
 
 This module validates a config hash reference against a given hash
 structure in contrast to L<Data::Validate> in which you have to
-check each value separately using methods.
+check each value separately using certain methods.
 
 This hash could be the result of a config parser or just any
 hash structure. Eg. the hash returned by L<XML::Simple> could
 be validated using this module. You may also use it to validate
 CGI input, just fetch the input data from CGI, L<map> it to a
 hash and validate it.
+
+Data::Validate::Struct uses some of the methods exported by L<Data::Validate>,
+so you need to install it too.
 
 
 =head1 PREDEFINED BUILTIN DATA TYPES
@@ -282,6 +290,14 @@ hash and validate it.
 =item B<int>
 
 Match a simple integer number.
+
+=item B<hex>
+
+Match a hex value.
+
+=item B<oct>
+
+Match an octagonal value.
 
 =item B<number>
 
@@ -608,10 +624,15 @@ No environment variables will be used.
 
 I recommend you to read the following documentations, which are supplied with perl:
 
- perlreftut                     Perl references short introduction
- perlref                        Perl references, the rest of the story
- perldsc                        Perl data structures intro
- perllol                        Perl data structures: arrays of arrays
+L<perlreftut> Perl references short introduction.
+
+L<perlref> Perl references, the rest of the story.
+
+L<perldsc> Perl data structures intro.
+
+L<perllol> Perl data structures: arrays of arrays.
+
+L<Data::Validate> common data validation methods.
 
 =head1 LICENSE AND COPYRIGHT
 
@@ -642,7 +663,7 @@ For example to debug the regex matching during processing try this:
 
 =head1 DEPENDENCIES
 
-Data::Validate::Struct depends on the module 
+Data::Validate::Struct depends on the module L<Data::Validate>,
 L<Regexp::Common>, L<File::Spec> and L<File::stat>.
 
 =head1 TODO
@@ -657,7 +678,7 @@ Add support for type mixes, such as:
 
 =item *
 
-Add support for ranges, in fact L<Regexp::Common> already
+Add support for ranges, in fact L<Regexp::Common> or L<Data::Validate> already
 supports this, but B<Data::Validate::Struct> currently doesn't support
 parameters for types.
 
@@ -690,7 +711,7 @@ Thanks to David Cantrell for his helpful hints.
 
 =head1 VERSION
 
-0.05
+0.06
 
 =cut
 

@@ -1,3 +1,13 @@
+0.06
+	o fixed t/run.t, it used still the old name, all tests
+	  failed therefore.
+
+	o replaced some of the built-in regexes with methods
+	  of Data::Validate(the real one :-) ).
+
+	o added 2 new types: hex and oct.
+
+
 0.05
 	o well, against renamed it to Data::Validate::Struct,
 	  because Data::Validate already exists.
