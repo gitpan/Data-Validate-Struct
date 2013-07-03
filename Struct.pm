@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2007 Thomas Linden <tlinden |AT| cpan.org>.
+# Copyright (c) 2007-2013 Thomas Linden <tlinden |AT| cpan.org>.
 # All Rights Reserved. Std. disclaimer applies.
 # Artificial License, same as perl itself. Have fun.
 #
@@ -11,7 +11,6 @@ use warnings;
 use English '-no_match_vars';
 use Carp;
 use Exporter;
-#use Data::Dumper;
 
 use Regexp::Common::URI::RFC2396 qw /$host $port/;
 use Regexp::Common qw /URI net delimited/;
@@ -20,11 +19,12 @@ use File::Spec::Functions qw/file_name_is_absolute/;
 use File::stat;
 
 use Data::Validate qw(:math is_printable);
+use Data::Validate::IP qw(is_ipv4 is_ipv6);
 
 use constant FALSE => 0;
 use constant TRUE  => 1;
 
-$Data::Validate::Struct::VERSION = 0.06;
+our $VERSION = 0.07;
 
 use vars  qw(@ISA);
 
@@ -47,53 +47,40 @@ sub new {
 
 		    # FIXME: add is_between argumented types, need more than one argument
 
-		    number         => sub { return defined(is_numeric($_[0])); }, # abandoned: qr(^$RE{num}{decimal}$),
+		    number         => sub { return defined(is_numeric($_[0])); },
 		    word           => qr(^[\w_\-]+$),
 		    line           => qr/^[^\n]+$/s,
 
-		    text           => sub { return defined(is_printable($_[0])); }, # abandoned: qr/.+/s,
+		    text           => sub { return defined(is_printable($_[0])); },
 
-		    # this is a bit loosy but should match most regular expressions
-		    # using the qr() operator, but it doesn't check if the expression
-		    # is valid. we could do this by compiling it, but this would lead
-		    # to exploitation possiblities to programs using the module.
-		    regex          => qr/^qr ( (.).*\1 | \(.*\) | \{.*\} ) $/x,
+		    regex          => sub {
+                      my $r = ref $_[0];
+                      return 1 if $r eq 'Regexp';
+                      if ($r eq '') {
+		        # this is a bit loosy but should match most regular expressions
+		        # using the qr() operator, but it doesn't check if the expression
+		        # is valid. we could do this by compiling it, but this would lead
+		        # to exploitation possiblities to programs using the module.
+                        return $_[0] =~ qr/^qr ( (.).*\1 | \(.*\) | \{.*\} ) $/x;
+                      }
+                      return 0;
+                    },
 
 		    # via imported regexes
 		    uri            => qr(^$RE{URI}$),
-		    # FIXME: use Data::Validate::IP here
-		    cidrv4         => qr/^$RE{net}{IPv4} \/ ( [0-9] | [12][0-9] | 3[0-2] )$/x,
-		    ipv4           => qr/^$RE{net}{IPv4}$/,
+		    cidrv4         => sub {
+                      my ($p, $l) = split(/\//, $_[0]);
+                      return defined(is_ipv4($p)) && defined(is_between($l, 0, 32));
+                    },
+		    ipv4           => sub { defined(is_ipv4($_[0])) },
                     quoted         => qr/^$RE{delimited}{ -delim => qr(\') }$/,
 		    hostname       => qr(^$host$),
 
-		    # IPv6 addresses
-		    # well, this expression is very complicated - I found it on:
-		    # http://blogs.msdn.com/mpoulson/archive/2005/01/10/350037.aspx
-		    # Thanks to Mike Poulson!
-		    # Interesting side note: those expressions were written for
-		    # VB.net - since it works here unchanged, I think they use PCRE :-)
-		    ipv6           => qr/^
-					 (
-                                           (?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}
-					 )
-                                         |
-					 (
-                                           ((?:[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4})*)?)::
-                                             ((?:[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4})*)?)
-					 )
-                                         |
-					 (
-                                           ((?:[0-9A-Fa-f]{1,4}:){6,6})(25[0-5]|2[0-4]\d|
-                                                      [0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}
-					 )
-                                         |
-					 (
-                                           ((?:[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4})*)?)
-                                                      ::((?:[0-9A-Fa-f]{1,4}:)*)(25[0-5]|2[0-4]\d|
-                                                      [0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}
-					 )
-                                        $/x,
+		    ipv6           => sub { defined(is_ipv6($_[0])) },
+		    cidrv6         => sub {
+                      my ($p, $l) = split('/', $_[0]);
+                      return defined(is_ipv6($p)) && defined(is_between($l, 0, 128));
+                    },
 
 		    # matches perl style scalar variables
 		    # possible matches: $var ${var} $(var)
@@ -120,6 +107,8 @@ sub new {
 		    # int between 0 - 65535
 		    port           => sub { if ( $_[0] =~ /^$port$/ && ($_[0] > 0 && $_[0] < 65535) ) { return 1; } else { return 0; } },
 
+                    # just a place holder at make the key exist
+                    optional       => 1,
 		    };
 
   $self->{debug} = 0;
@@ -139,6 +128,8 @@ sub type {
   my ($this, %param) = @_;
   foreach my $type (keys %param) {
     $this->{types}->{$type} = $param{$type};
+    # add negative match types
+    $this->{types}->{'no' . $type} = $param{$type};
   }
 }
 
@@ -173,84 +164,103 @@ sub validate {
 sub _debug {
   my ($this, $msg) = @_;
   if ($this->{debug}) {
-    print STDERR "::Validate::debug() - $msg\n";
+    print STDERR "D::V::S::debug() - $msg\n";
   }
 }
 
 sub traverse {
-  my($this, $a, $b) = @_;
+  my($this, $reference, $hash) = @_;
 
-  foreach my $key (keys %{$a}) {
-
-    if (ref($a->{$key}) eq 'ARRAY') {
+  foreach my $key (keys %{$reference}) {
+    if (ref($reference->{$key}) eq 'ARRAY') {
       # just use the 1st one, more elements in array are expected to be the same
-      foreach my $item (@{$b->{$key}}) {
+      foreach my $item (@{$hash->{$key}}) {
 	if (ref($item) eq q(HASH)) {
-	  $this->traverse($a->{$key}->[0], $item);
+	  $this->traverse($reference->{$key}->[0], $item);
 	}
 	else {
 	  # a value, this is tricky
-	  $this->traverse({item => $a->{$key}->[0]}, { item => $item});
+	  $this->traverse({item => $reference->{$key}->[0]}, { item => $item});
 	}
       }
     }
-    elsif (ref($a->{$key}) eq 'HASH') {
-      $this->traverse($a->{$key}, $b->{$key});
+    elsif (ref($reference->{$key}) eq 'HASH') {
+      $this->traverse($reference->{$key}, $hash->{$key});
     }
-    elsif (grep {ref($a->{$key}) ne $_} qw(GLOB REF CODE LVALUE) ) {
-      # check data type
-      if (! exists $this->{types}->{$a->{$key}}) {
-	croak qq(Invalid data type "$a->{$key}");
+    elsif (ref($reference->{$key}) eq '') {
+      my @types = _trim( (split /\|/, $reference->{$key}) );
+      # check data types
+      if (grep { ! exists $this->{types}->{$_} } @types) {
+	croak qq(Invalid data type in "$reference->{$key}");
       }
       else {
-	if (exists $b->{$key}) {
-	  if ($a->{$key} =~ /^no\s*/) {
-	    $this->check_type($a->{$key}, $key, $b->{$key}, sub{ die $_[0]; }, sub {});
-	  }
-	  else {
-	    $this->check_type($a->{$key}, $key, $b->{$key}, sub{}, sub{ die $_[0]; });
-	  }
+	if (exists $hash->{$key}) {
+	  $this->check_type(\@types, $key, $hash->{$key});
 	}
+        elsif (grep { $_ eq 'optional' } @types) {
+          # do nothing
+          $this->_debug("$key is optional");
+        }
 	else {
-	  die "requred $key doesn't exist in hash\n";
+	  die "required $key doesn't exist in hash\n";
 	}
       }
+    } else {
+      croak "Invalid data type '$reference->{$key}: " . ref($reference->{$key});
     }
   }
 }
 
 sub check_type {
-  my($this, $type, $name, $value, $true, $false) = @_;
+  my($this, $types, $name, $value) = @_;
 
-  if (ref($this->{types}->{$type}) eq q(CODE)) {
-    # execute closure
-    my $sub = $this->{types}->{$type};
-    if (! &$sub($value)) {
-      $this->_debug( "$name = $value, value is not $type");
-      die "$name = $value, value is not $type";
+  # the aggregated match over *all* types
+  my $match = 0;
+  foreach my $type (@$types) {
+    next if $type eq 'optional';
+
+    # if the type begins with 'no' AND the remainder of the type
+    # also exists in the type hash, we are expects something that is
+    # FALSE (0), else TRUE (0).
+    # we must check for both, if not we will get a false match on a type
+    # called 'nothing'.
+    my $expects = TRUE;
+    if ($type =~ /^no(.*)/) {
+      $expects = FALSE if exists $this->{types}->{$1};
     }
-    else {
-      $this->_debug( "$name = $value, value is $type");
-    }
-  }
-  else {
-    if ($value =~ /$this->{types}->{$type}/) {
-      $this->_debug( "$name = $value, value doesn't match /$type/");
-      &$true( "$name = $value, value doesn't match /$type/\n");
-    }
-    else {
-      $this->_debug( "$name = $value, value matches /$type/");
-      &$false( "$name = $value, value doesn't match /$type/\n");
-    }
+
+    my $result = ref($this->{types}->{$type}) eq q(CODE)
+      ? &{$this->{types}->{$type}}($value)  ? TRUE : FALSE   # execute closure
+      : $value =~ /$this->{types}->{$type}/ ? TRUE : FALSE;
+
+    $this->_debug(sprintf(
+      "%s = %s, value %s %s", $name, $value, $result ? 'is' : 'is not', $type
+    ));
+    $match ||= ($expects == $result);
   }
 
+  # die if it doesn't match
+  die("$name = $value, value doesn't match " . join(' | ', @$types)) unless $match;
+
+  # else return gracefully
+  return;
 }
 
+
+sub _trim {
+  my @a = @_;
+  foreach (@a) {
+    s/^\s+|\s+$//;
+  }
+  return wantarray ? @a : $a[0];
+}
 
 1;
 
 
 __END__
+
+=pod
 
 =head1 NAME
 
@@ -373,6 +383,13 @@ Match an IPv6 address. Some examples:
  ff02:0:0:0:0:0:0:1
  ff02::1
 
+=item B<cidrv6>
+
+The same as above including cidr netmask (/64), IPv6 only, eg:
+
+ 2001:db8:dead:beef::1/64
+ 2001:db8::/32
+
 =item B<quoted>
 
 Match a text quoted with single quotes, eg:
@@ -425,6 +442,28 @@ eg:
 
 =back
 
+
+=head1 MIXED TYPES
+
+If there is an element which could match more than one type, this
+can be matched by using the pipe sign C<|> to separate the types.
+
+  { name => 'int | number' }
+
+There is no limit on the number of types that can be checked for, and the
+check is done in the sequence written (first the type 'int', and then
+'number' in the example above).
+
+
+=head1 OPTIONAL ITEMS
+
+If there is an element which is optional in the hash, you can use
+the type 'optional' in the type. The 'optional' type can also be mixed
+with ordinary types, like:
+
+  { name => 'text | optional' }
+
+The type 'optional' can be placed anywhere in the type string.
 
 
 =head1 NEGATIVE MATCHING
@@ -565,10 +604,8 @@ during evaluation for each option which you define as type 'list'.
 
 Such subroutines must return a true value in order to produce a match.
 
-You can also add reversive types, which are like all other types
-but start with B<no>. The validator does a negative match in such a
-case, thus you will have a match if a variable does B<not> match
-the type. The builtin type 'novars' is such a type.
+A negative/reverse match is automatically added as well, see
+L</NEGATIVE MATCHING>.
 
 Regexes will be executed exactly as given. No flags or ^ or $
 will be used by the module. Eg. if you want to match the whole
@@ -585,32 +622,6 @@ Returns the last error, which is useful to notify the user
 about what happened.
 
 =back
-
-=head1 ARRAYS
-
-Arrays must be handled in a special way, just define an array
-with two elements and the second empty. The config will only
-validated against the first element in the array.
-
-We assume all elements in an array must have the same structure.
-
-Example for array of hashes:
-
- $reference = {
-                [
-                  {
-                     user => 'word',
-                     uid => 'int'
-                  },
-                  {} # empty 2nd element
-                ]
-               };
-
-Example of array of values:
-
- $reference = {
-  var => [ 'int', '' ]
- }
 
 =head1 EXAMPLES
 
@@ -634,9 +645,11 @@ L<perllol> Perl data structures: arrays of arrays.
 
 L<Data::Validate> common data validation methods.
 
+L<Data::Validate::IP> common data validation methods for IP-addresses.
+
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (c) 2007 Thomas Linden
+Copyright (c) 2007-2013 Thomas Linden
 
 This library is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
@@ -664,17 +677,11 @@ For example to debug the regex matching during processing try this:
 =head1 DEPENDENCIES
 
 Data::Validate::Struct depends on the module L<Data::Validate>,
-L<Regexp::Common>, L<File::Spec> and L<File::stat>.
+L<Data::Validate:IP>, L<Regexp::Common>, L<File::Spec> and L<File::stat>.
 
 =head1 TODO
 
 =over
-
-=item *
-
-Add support for type mixes, such as:
-
- { name => 'int|number' }
 
 =item *
 
@@ -711,7 +718,7 @@ Thanks to David Cantrell for his helpful hints.
 
 =head1 VERSION
 
-0.06
+0.07
 
 =cut
 

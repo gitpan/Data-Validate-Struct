@@ -93,6 +93,12 @@ PREDEFINED BUILTIN DATA TYPES
          ff02:0:0:0:0:0:0:1
          ff02::1
 
+    cidrv6
+        The same as above including cidr netmask (/64), IPv6 only, eg:
+
+         2001:db8:dead:beef::1/64
+         2001:db8::/32
+
     quoted
         Match a text quoted with single quotes, eg:
 
@@ -135,6 +141,25 @@ PREDEFINED BUILTIN DATA TYPES
          $user is $attribute
          I am $(years) old
          Missing ${points} points to succeed
+
+MIXED TYPES
+    If there is an element which could match more than one type, this can be
+    matched by using the pipe sign `|' to separate the types.
+
+      { name => 'int | number' }
+
+    There is no limit on the number of types that can be checked for, and
+    the check is done in the sequence written (first the type 'int', and
+    then 'number' in the example above).
+
+OPTIONAL ITEMS
+    If there is an element which is optional in the hash, you can use the
+    type 'optional' in the type. The 'optional' type can also be mixed with
+    ordinary types, like:
+
+      { name => 'text | optional' }
+
+    The type 'optional' can be placed anywhere in the type string.
 
 NEGATIVE MATCHING
     In some rare situations you might require a negative match. So a test
@@ -265,10 +290,8 @@ SUBROUTINES/METHODS
         Such subroutines must return a true value in order to produce a
         match.
 
-        You can also add reversive types, which are like all other types but
-        start with no. The validator does a negative match in such a case,
-        thus you will have a match if a variable does not match the type.
-        The builtin type 'novars' is such a type.
+        A negative/reverse match is automatically added as well, see
+        NEGATIVE MATCHING.
 
         Regexes will be executed exactly as given. No flags or ^ or $ will
         be used by the module. Eg. if you want to match the whole value from
@@ -281,31 +304,6 @@ SUBROUTINES/METHODS
     errstr()
         Returns the last error, which is useful to notify the user about
         what happened.
-
-ARRAYS
-    Arrays must be handled in a special way, just define an array with two
-    elements and the second empty. The config will only validated against
-    the first element in the array.
-
-    We assume all elements in an array must have the same structure.
-
-    Example for array of hashes:
-
-     $reference = {
-                    [
-                      {
-                         user => 'word',
-                         uid => 'int'
-                      },
-                      {} # empty 2nd element
-                    ]
-                   };
-
-    Example of array of values:
-
-     $reference = {
-      var => [ 'int', '' ]
-     }
 
 EXAMPLES
     Take a look to t/run.t for lots of examples.
@@ -327,8 +325,10 @@ SEE ALSO
 
     Data::Validate common data validation methods.
 
+    Data::Validate::IP common data validation methods for IP-addresses.
+
 LICENSE AND COPYRIGHT
-    Copyright (c) 2007 Thomas Linden
+    Copyright (c) 2007-2013 Thomas Linden
 
     This library is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.
@@ -338,7 +338,7 @@ BUGS AND LIMITATIONS
     This will no more happen if entering a stable release (starting with
     1.00).
 
-    To submit use <http://rt.cpan.org>.
+    To submit use http://rt.cpan.org.
 
 INCOMPATIBILITIES
     None known.
@@ -353,13 +353,9 @@ DIAGNOSTICS
 
 DEPENDENCIES
     Data::Validate::Struct depends on the module Data::Validate,
-    Regexp::Common, File::Spec and File::stat.
+    Data::Validate:IP, Regexp::Common, File::Spec and File::stat.
 
 TODO
-    *   Add support for type mixes, such as:
-
-         { name => 'int|number' }
-
     *   Add support for ranges, in fact Regexp::Common or Data::Validate
         already supports this, but Data::Validate::Struct currently doesn't
         support parameters for types.
@@ -383,5 +379,5 @@ AUTHOR
     Thanks to David Cantrell for his helpful hints.
 
 VERSION
-    0.06
+    0.07
 
