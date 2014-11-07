@@ -27,6 +27,11 @@ DESCRIPTION
 PREDEFINED BUILTIN DATA TYPES
     int Match a simple integer number.
 
+    range(a-b)
+        Match a simple integer number in a range between a and b. Eg:
+
+         { loginport => 'range(22-23)' }
+
     hex Match a hex value.
 
     oct Match an octagonal value.
@@ -47,9 +52,9 @@ PREDEFINED BUILTIN DATA TYPES
     regex
         Match a perl regex using the operator qr(). Valid examples include:
 
-         qr/[0-9]+/
-         qr([^%]*)
-         qr{\w+(\d+?)}
+          qr/[0-9]+/
+          qr([^%]*)
+          qr{\w+(\d+?)}
 
         Please note, that this doesn't mean you can provide here a regex
         against config options must match.
@@ -58,9 +63,9 @@ PREDEFINED BUILTIN DATA TYPES
 
         eg:
 
-         <cfg>
-           grp  = qr/root|wheel/
-         </cfg>
+          $cfg = {
+            grp  = qr/root|wheel/
+          };
 
         regex would match the content of the variable 'grp' in this example.
 
@@ -75,11 +80,11 @@ PREDEFINED BUILTIN DATA TYPES
     cidrv4
         The same as above including cidr netmask (/24), IPv4 only, eg:
 
-         10.2.123.0/23
+          10.2.123.0/23
 
         Note: shortcuts are not supported for the moment, eg:
 
-         10.10/16
+          10.10/16
 
         will fail while it is still a valid IPv4 cidr notation for a network
         address (short for 10.10.0.0/16). Must be fixed in Regex::Common.
@@ -87,22 +92,22 @@ PREDEFINED BUILTIN DATA TYPES
     ipv6
         Match an IPv6 address. Some examples:
 
-         3ffe:1900:4545:3:200:f8ff:fe21:67cf
-         fe80:0:0:0:200:f8ff:fe21:67cf
-         fe80::200:f8ff:fe21:67cf
-         ff02:0:0:0:0:0:0:1
-         ff02::1
+          3ffe:1900:4545:3:200:f8ff:fe21:67cf
+          fe80:0:0:0:200:f8ff:fe21:67cf
+          fe80::200:f8ff:fe21:67cf
+          ff02:0:0:0:0:0:0:1
+          ff02::1
 
     cidrv6
         The same as above including cidr netmask (/64), IPv6 only, eg:
 
-         2001:db8:dead:beef::1/64
-         2001:db8::/32
+          2001:db8:dead:beef::1/64
+          2001:db8::/32
 
     quoted
         Match a text quoted with single quotes, eg:
 
-         'barbara is sexy'
+          'barbara is sexy'
 
     hostname
         Match a valid hostname, it must qualify to the definitions in RFC
@@ -116,7 +121,7 @@ PREDEFINED BUILTIN DATA TYPES
         Match a valid absolute path, it won't do a stat() system call. This
         will work on any operating system at runtime. So this one:
 
-         C:\Temp
+          C:\Temp
 
         will return TRUE if running on WIN32, but FALSE on FreeBSD!
 
@@ -138,13 +143,13 @@ PREDEFINED BUILTIN DATA TYPES
         Matches a string of text containing variables (perl style variables
         though) eg:
 
-         $user is $attribute
-         I am $(years) old
-         Missing ${points} points to succeed
+          $user is $attribute
+          I am $(years) old
+          Missing ${points} points to succeed
 
 MIXED TYPES
     If there is an element which could match more than one type, this can be
-    matched by using the pipe sign `|' to separate the types.
+    matched by using the pipe sign "|" to separate the types.
 
       { name => 'int | number' }
 
@@ -187,19 +192,19 @@ VALIDATOR STRUCTURE
 
     Example:
 
-     $reference = { user => 'word', uid => 'int' };
+      $reference = { user => 'word', uid => 'int' };
 
     The following config would be validated successful:
 
-     $config = { user => 'HansDampf',  uid => 92 };
+      $config = { user => 'HansDampf',  uid => 92 };
 
     this one not:
 
-     $config = { user => 'Hans Dampf', uid => 'nine' };
-                              ^                ^^^^
-                              |                |
-                              |                +----- is not a number
-                              +---------------------- space not allowed
+      $config = { user => 'Hans Dampf', uid => 'nine' };
+                               ^                ^^^^
+                               |                |
+                               |                +----- is not a number
+                               +---------------------- space not allowed
 
     For easier writing of references you yould use a configuration file
     parser like Config::General or Config::Any, just write the definition
@@ -216,38 +221,38 @@ NESTED HASH STRUCTURES
 
     Given the following reference hash:
 
-     $ref = {
-     'b1' => {
+      $ref = {
+          'b1' => {
               'b2' => {
-                       'b3' => {
-                                'item' => 'int'
-                               }
-                      }
+                  'b3' => {
+                      'item' => 'int'
+                  }
               }
-     }
+          }
+      }
 
     Now if you validate it against the following config hash it will return
     TRUE:
 
-     $cfg = {
-     'b1' => {
+      $cfg = {
+          'b1' => {
               'b2' => {
-                       'b3' => {
-                                'item' => '100'
-                               }
-                      }
-             }
-     }
+                  'b3' => {
+                      'item' => '100'
+                  }
+              }
+          }
+      }
 
     If you validate it for example against this hash, it will return FALSE:
 
-     $cfg = {
-     'b1' => {
+      $cfg = {
+          'b1' => {
               'b2' => {
-                        'item' => '100'
-                       }
-             }
-     }
+                  'item' => '100'
+              }
+          }
+      }
 
 SUBROUTINES/METHODS
     validate($config)
@@ -263,47 +268,148 @@ SUBROUTINES/METHODS
         or more new types using a simple hash using the type() method.
         Values in this hash can be regexes or anonymous subs.
 
-        Example:
+        "type" does accept either a hash (%hash), a hash ref (%$hash) or a
+        list of key/values ("key => value") as input.
 
-         $v3->type(
-          (
-          address => qr(^\w+\s\s*\d+$),
-          list    =>
-            sub {
-              my $list = $_[0];
-              my @list = split /\s*,\s*/, $list;
-              if (scalar @list > 1) {
-                return 1;
-              }
-              else {
-                return 0;
-              }
-            }
-          )
-         );
-
-        In this example we add 2 new types, 'list' and 'address', which are
-        really simple. 'address' is a regex which matches a word followed by
-        an integer. 'list' is a subroutine which gets called during
-        evaluation for each option which you define as type 'list'.
-
-        Such subroutines must return a true value in order to produce a
-        match.
-
-        A negative/reverse match is automatically added as well, see
-        NEGATIVE MATCHING.
-
-        Regexes will be executed exactly as given. No flags or ^ or $ will
-        be used by the module. Eg. if you want to match the whole value from
-        beginning to the end, add ^ and $, like you can see in our 'address'
-        example above.
+        For details see "CUSTOM VALIDATORS".
 
     debug()
         Enables debug output which gets printed to STDERR.
 
+    errors
+        Returns an array ref with the errors found when validating the hash.
+        Each error is on the format '<value> doesn't match <types> at
+        <ref>', where <ref> is a comma separated tree view depicting where
+        in the the error occured.
+
     errstr()
         Returns the last error, which is useful to notify the user about
-        what happened.
+        what happened. The format is like in "errors".
+
+EXPORTED FUNCTIONS
+  add_validators
+    This is a class function which adds types not per object but globally
+    for each instance of Data::Validate::Struct.
+
+     use Data::Validate::Struct qw(add_validators);
+     add_validators( name => .. );
+     my $v = Data::Validate::Struct->new(..);
+
+    Parameters to add_validators are the same as of the type method.
+
+    For details see "CUSTOM VALIDATORS".
+
+CUSTOM VALIDATORS
+    You can add your own validators, which maybe regular expressions or
+    anonymous subs. Validators can be added using the type() method or
+    globally using the add_validators() function.
+
+  CUSTOM REGEX VALIDATORS
+    If you add a validator which is just a regular expressions, it will
+    evaluated as is. This is the most simplest way to customize validation.
+
+    Sample:
+
+     use Data::Validate::Struct qw(add_validators);
+     add_validators(address => qr(^\w+\s\s*\d+$));
+     my $v = Data::Validate::Struct->new({place => 'address'});
+     $v->validate({place => 'Livermore 19'});
+
+    Regexes will be executed exactly as given. No flags or ^ or $ will be
+    used by the module. Eg. if you want to match the whole value from
+    beginning to the end, add ^ and $, like you can see in our 'address'
+    example above.
+
+  CUSTOM VALIDATOR FUNCTIONS
+    If the validator is a coderef, it will be executed as a sub.
+
+    Example:
+
+     use Data::Validate::Struct qw(add_validators);
+     add_validators(
+        list => sub {
+          my $list = shift;
+          my @list = split /\s*,\s*/, $list;
+          return scalar @list > 1;
+        },
+     );
+
+    In this example we add a new type 'list', which is really simple. 'list'
+    is a subroutine which gets called during evaluation for each option
+    which you define as type 'list'.
+
+    Such a subroutine must return a true value in order to produce a match.
+    It receives the following arguments:
+
+    *   value to be evaluated
+
+    *   unparsed arguments, if defined in the reference
+
+    *   array of parsed arguments, tokenized by , and -
+
+    That way you may define a type which accepts an arbitrary number of
+    arguments, which makes the type customizable. Sample:
+
+     # new validator
+     $v4 = Data::Validate::Struct->new({ list => nwords(4) });
+ 
+     # define type 'nwords' with support for 1 argument
+     $v4->type(
+       nwords => sub {
+         my($val, $ignore, $count) = @_;
+         return (scalar(split /\s+/, $val) == $count) ? 1 : 0;
+       },
+     );
+ 
+     # validate
+     $v4->validate({ list => 'these are four words' });
+
+  CUSTOM VALIDATORS USING A GRAMMAR
+    Sometimes you want to be more flexible, in such cases you may use a
+    parser generator to validate input. This is no feature of
+    Data::Validate::Struct, you will just write a custom code ref validator,
+    which then uses the grammar.
+
+    Here's a complete example using Parse::RecDescent:
+
+     use Parse::RecDescent;
+     use Data::Validate::Struct qw(add_validators);
+ 
+     my $grammar = q{
+        line: expr(s)
+        expr: number operator number
+        number: int | float
+        int: /\d+/
+        float: /\d*\\.\d+/
+        operator: '+' | '-' | '*' | '/'
+     };
+ 
+     my $parse = Parse::RecDescent->new($grammar);
+ 
+     add_validators(calc => sub { defined $parse->line($_[0]) ? 1 : 0; });
+ 
+     my $val = Data::Validate::Struct->new({line => 'calc'});
+ 
+     if ($val->validate({line => "@ARGV"})) {
+       my $r;
+       eval "\$r = @ARGV";
+       print "$r\n";
+     }
+     else {
+       print "syntax error\n";
+     }
+
+    Now you can use it as follows:
+
+     ./mycalc 54 + 100 - .1
+     153.9
+ 
+     ./mycalc 8^2
+     syntax error
+
+  NEGATED VALIDATOR
+    A negative/reverse match is automatically added as well, see "NEGATIVE
+    MATCHING".
 
 EXAMPLES
     Take a look to t/run.t for lots of examples.
@@ -328,7 +434,7 @@ SEE ALSO
     Data::Validate::IP common data validation methods for IP-addresses.
 
 LICENSE AND COPYRIGHT
-    Copyright (c) 2007-2013 Thomas Linden
+    Copyright (c) 2007-2014 T. v.Dein
 
     This library is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.
@@ -338,7 +444,7 @@ BUGS AND LIMITATIONS
     This will no more happen if entering a stable release (starting with
     1.00).
 
-    To submit use http://rt.cpan.org.
+    To submit use <http://rt.cpan.org>.
 
 INCOMPATIBILITIES
     None known.
@@ -355,29 +461,13 @@ DEPENDENCIES
     Data::Validate::Struct depends on the module Data::Validate,
     Data::Validate:IP, Regexp::Common, File::Spec and File::stat.
 
-TODO
-    *   Add support for ranges, in fact Regexp::Common or Data::Validate
-        already supports this, but Data::Validate::Struct currently doesn't
-        support parameters for types.
+AUTHORS
+    T. v.Dein <tlinden |AT| cpan.org>
 
-    *   Perhaps add code validation too, for example we could have a type
-        'perl' which tries to evaluate the given value. On the other side
-        this may lead to security holes - so I might never do it.
-
-    *   Plugin System
-
-    *   Possibly add support for grammars. This might be much more powerful
-        than regular expressions, say:
-
-         { name => 'expr OP expr | expr' }
-
-        or something like this.
-
-AUTHOR
-    Thomas Linden <tlinden |AT| cpan.org>
+    Per Carlson <pelle |AT| cpan.org>
 
     Thanks to David Cantrell for his helpful hints.
 
 VERSION
-    0.07
+    0.08
 

@@ -1,7 +1,7 @@
 #
 # Makefile.PL - build file for Date::Validate::Struct
 #
-# Copyright (c) 2007-2013 Thomas Linden <tom |AT| cpan.org>.
+# Copyright (c) 2007-2014 T. v.Dein <tom |AT| cpan.org>.
 # All Rights Reserved. Std. disclaimer applies.
 # Artificial License, same as perl itself. Have fun.
 #
@@ -18,6 +18,12 @@ WriteMakefile(
                 'Data::Validate::IP' => '0.18',
               },
 	      dist         => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
-	      test         => { TESTS => 't/*.t' }
+	      test         => { TESTS => 't/*.t' },
+              'META_MERGE' => {
+                               resources => {
+                                             repository => 'https://github.com/TLINDEN/Data-Validate-Struct',
+                                            },
+                              },
+
 );
 
