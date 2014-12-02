@@ -1,3 +1,13 @@
+0.9
+	o Added AUTHOR, LICENSE and ABSTRACT fields to Makefile.PL
+	
+	o Fixed 'Artistic' typo in Makefile.PL
+
+	o fixed cached errors bug - if a validator object has
+	  been used multiple times and if during the first
+	  run some errors occured, subsequent runs would show
+	  the same error again and again.
+
 0.08
 	o applied patches by Per Carlson:
 	  - don't die on 1st error, rather collect them and
@@ -35,7 +45,7 @@
 	o well, against renamed it to Data::Validate::Struct,
 	  because Data::Validate already exists.
 
-	o removed chack for 'resolvablehost' because some cpantesters
+	o removed check for 'resolvablehost' because some cpantesters
 	  failed to run it.
 
 
